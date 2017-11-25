@@ -8,6 +8,8 @@ public enum Instruction {
 		public boolean check(Pilot pilot, Input input) {
 			boolean leftEdge = input.leftDetect == Input.EDGE;
 			boolean rightEdge = input.rightDetect == Input.EDGE;
+			boolean leftRamp = input.leftDetect == Input.RAMP;
+			boolean rightRamp = input.rightDetect == Input.RAMP;
 
 			if (leftEdge && rightEdge) {
 				// Move back, start timer
@@ -18,17 +20,23 @@ public enum Instruction {
 
 				return true;
 			} else if (rightEdge) {
-				// Turning Left
-				pilot.leftScalar = -2;
-				pilot.rightScalar = -1;
-				pilot.update();
+
+				if (!leftRamp) {
+					// Turning Left
+					pilot.leftScalar = -2;
+					pilot.rightScalar = -1;
+					pilot.update();
+				}
 
 				return true;
 			} else if (leftEdge) {
-				// Turning Right
-				pilot.leftScalar = -1;
-				pilot.rightScalar = -2;
-				pilot.update();
+
+				if (!rightRamp) {
+					// Turning Right
+					pilot.leftScalar = -1;
+					pilot.rightScalar = -2;
+					pilot.update();
+				}
 
 				return true;
 			}
@@ -45,8 +53,8 @@ public enum Instruction {
 
 				return true;
 			} else {
-				pilot.leftScalar = Math.min(1, pilot.leftScalar + delta);
-				pilot.rightScalar = Math.min(1, pilot.rightScalar + delta);
+				pilot.leftScalar = Math.min(1, pilot.leftScalar + delta * 1.5f);
+				pilot.rightScalar = Math.min(1, pilot.rightScalar + delta * 1.5f);
 				pilot.update();
 			}
 
@@ -57,43 +65,7 @@ public enum Instruction {
 			reversing = false;
 			time = 0f;
 		}
-	}, "Moving"),
-
-	FIX_STALL(new Fiber() {
-		boolean twisting = false;
-		float time = 0f;
-
-		public boolean check(Pilot pilot, Input input) {
-			if (pilot.isStalled()) {
-				pilot.leftScalar = -1;
-				pilot.rightScalar = 1;
-				pilot.update();
-				twisting = true;
-
-				return true;
-			}
-
-			return false;
-		}
-
-		public boolean update(Pilot pilot, Input input, float delta) {
-			if (twisting && (time += delta) > 2) {
-				// Move straight after timer
-				pilot.leftScalar = 1;
-				pilot.rightScalar = 1;
-				pilot.update();
-
-				return true;
-			}
-
-			return false;
-		}
-
-		public void cutoff(Pilot pilot, Input input) {
-			twisting = false;
-			time = 0f;
-		}
-	}, "Fix Stall"),
+	}),
 
 	PUSH(new Fiber() {
 		public boolean check(Pilot pilot, Input input) {
@@ -127,10 +99,11 @@ public enum Instruction {
 		public void cutoff(Pilot pilot, Input input) {
 			pilot.speed = Pilot.MAX_SPEED;
 		}
-	}, "Push"),
+	}),
 
 	ALIGN_RAMP(new Fiber() {
 		boolean aligning = false;
+		float time = 0f;
 
 		public boolean check(Pilot pilot, Input input) {
 			boolean leftRamp = input.leftDetect == Input.RAMP;
@@ -140,25 +113,28 @@ public enum Instruction {
 				if (rightRamp) {
 					aligning = true;
 					pilot.leftScalar = 1;
-					pilot.rightScalar = 0;
+					pilot.rightScalar = -0.25f;
 					pilot.update();
 
-					return false;
+					return true;
 				} else if (leftRamp) {
 					aligning = true;
-					pilot.leftScalar = 0;
+					pilot.leftScalar = -0.25f;
 					pilot.rightScalar = 1;
 					pilot.update();
 
-					return false;
+					return true;
 				}
 			}
 
-			return true;
+			return false;
 		}
 
 		public boolean update(Pilot pilot, Input input, float delta) {
-			if (aligning && input.leftDetect == Input.RAMP && input.rightDetect == Input.RAMP) {
+			if (aligning && (time += delta) < 2 && input.leftDetect == Input.RAMP
+					|| input.leftDetect == Input.EDGE && input.rightDetect == Input.RAMP
+					|| input.rightDetect == Input.EDGE) {
+
 				pilot.leftScalar = 1;
 				pilot.rightScalar = 1;
 				pilot.update();
@@ -171,8 +147,9 @@ public enum Instruction {
 
 		public void cutoff(Pilot pilot, Input input) {
 			aligning = false;
+			time = 0f;
 		}
-	}, "Align Ramp");
+	});
 
 	interface Fiber {
 		// Return true if demands control
@@ -181,15 +158,14 @@ public enum Instruction {
 		// Return true if finished
 		boolean update(Pilot pilot, Input input, float delta);
 
+		// When control is cut off
 		void cutoff(Pilot pilot, Input input);
 	}
 
 	private Fiber fiber;
-	public String name;
 
-	Instruction(Fiber fiber, String name) {
+	Instruction(Fiber fiber) {
 		this.fiber = fiber;
-		this.name = name;
 	}
 
 	public boolean check(Pilot pilot, Input input) {

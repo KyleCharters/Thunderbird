@@ -44,7 +44,6 @@ public class Main {
 			for (Instruction control : Instruction.values()) {
 				if (control.check(pilot, input)) {
 					currentControl = control;
-					System.out.println(control.name);
 					break;
 				}
 			}
