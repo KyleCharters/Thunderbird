@@ -29,6 +29,6 @@ public class Input {
 		rightDetect = rightSensor.getColorID();
 		leftDetect = leftSensor.getColorID();
 		frontTouched = frontSensor.isPressed();
-		backSensed = backSensor.getDistance() < 15;
+		backSensed = backSensor.getDistance() < 10;
 	}
 }

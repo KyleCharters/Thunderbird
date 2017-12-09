@@ -20,21 +20,19 @@ public enum Instruction {
 
 				return true;
 			} else if (rightEdge) {
-
 				if (!leftRamp) {
 					// Turning Left
-					pilot.leftScalar = -2;
+					pilot.leftScalar = -3;
 					pilot.rightScalar = -1;
 					pilot.update();
 				}
 
 				return true;
 			} else if (leftEdge) {
-
 				if (!rightRamp) {
 					// Turning Right
 					pilot.leftScalar = -1;
-					pilot.rightScalar = -2;
+					pilot.rightScalar = -3;
 					pilot.update();
 				}
 
@@ -47,7 +45,7 @@ public enum Instruction {
 		public boolean update(Pilot pilot, Input input, float delta) {
 			if (reversing && (time += delta) > 1.2 && !input.backSensed) {
 				// Turn left when timer is up
-				pilot.leftScalar = -2;
+				pilot.leftScalar = -3;
 				pilot.rightScalar = -1;
 				pilot.update();
 
@@ -68,10 +66,17 @@ public enum Instruction {
 	}),
 
 	PUSH(new Fiber() {
+		float time1 = 0f;
+		float time2 = 0f;
 		public boolean check(Pilot pilot, Input input) {
-			if (input.frontTouched || input.backSensed) {
+			if (input.frontTouched) {
 				pilot.speed = Pilot.MAX_SPEED * 0.7f;
 
+				return true;
+			}
+			if (input.backSensed) {
+				pilot.speed = Pilot.MAX_SPEED * 0.4f;
+				
 				return true;
 			}
 
@@ -80,12 +85,27 @@ public enum Instruction {
 
 		public boolean update(Pilot pilot, Input input, float delta) {
 			if (input.frontTouched) {
+				if ((time1 += delta) > 10) {
+					pilot.leftScalar = -3;
+					pilot.rightScalar = -1;
+					pilot.update();
+					
+					return true;
+				}
 				pilot.leftScalar = 1;
 				pilot.rightScalar = 1;
 				pilot.update();
 
 				return false;
-			} else if (input.backSensed) {
+			}
+			if (input.backSensed) {
+				if ((time2 += delta) > 10) {
+					pilot.leftScalar = 3;
+					pilot.rightScalar = 1;
+					pilot.update();
+					
+					return true;
+				}
 				pilot.leftScalar = -1;
 				pilot.rightScalar = -1;
 				pilot.update();
@@ -98,6 +118,12 @@ public enum Instruction {
 
 		public void cutoff(Pilot pilot, Input input) {
 			pilot.speed = Pilot.MAX_SPEED;
+			pilot.leftScalar = 0;
+			pilot.rightScalar = 0;
+			pilot.update();
+
+			time1 = 0f;
+			time2 = 0f;
 		}
 	}),
 
